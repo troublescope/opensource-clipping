@@ -15,6 +15,10 @@ All notable changes to the **OpenSource Clipping** project will be documented in
   - YouTube subtitle fallback (`--use-dlp-subs`) is automatically skipped for non-YouTube sources — Whisper is always used for transcription.
 - **Source Platform Banner**: The startup banner now displays the active source platform for clarity.
 
+### Fixed
+- **HEVC PyAV Crash (TikTok)**: Fixed an `IndexError: tuple index out of range` crash during Whisper transcription. `yt-dlp` was occasionally fetching TikTok videos encoded in highly compressed H.265 (`bytevc1`), which caused PyAV's container demuxer to fail in environments like Kaggle and Colab. The non-YouTube download selector has been explicitly tuned (`bestvideo[vcodec^=h264]`) to prefer H.264 codecs, ensuring flawless audio extraction and maximum compatibility.
+- **Backward Compatibility**: Restored `--tiktok` as a deprecated CLI flag alias that maps directly to `--source tiktok` to prevent existing automated scripts and Colab notebooks from breaking.
+
 ---
 
 ## [v1.2.3] - 2026-05-08

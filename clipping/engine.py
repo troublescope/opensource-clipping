@@ -95,8 +95,10 @@ def download_video(
         }
     else:
         # TikTok / Instagram / Google Drive: ensure video and audio are merged
+        # We explicitly prefer H.264 over H.265 (TikTok's bytevc1) to prevent 
+        # PyAV/faster-whisper from crashing with IndexError on Kaggle/Colab.
         ydl_opts = {
-            "format": "bestvideo+bestaudio/best",
+            "format": "bestvideo[vcodec^=h264]+bestaudio/best[vcodec^=h264]/best",
             "outtmpl": output_path,
             "quiet": True,
             "merge_output_format": "mp4",
