@@ -7,6 +7,13 @@ All notable changes to the **OpenSource Clipping** project will be documented in
 - **Minor (x.Y.z)**: Incremented for new functionality introduced in a backward-compatible manner.
 - **Patch (x.y.Z)**: Incremented for backward-compatible bug fixes or minor patches.
 
+## [v1.5.4] - 2026-05-22
+
+### Changed
+- **Hook V2 Trailing Flash**: Added a flash/glitch transition after the **last** hook item, right before the main clip starts. Previously transitions only appeared between items — now the intro ends with a clean flash that separates the hook from the main content.
+
+---
+
 ## [v1.5.3] - 2026-05-21
 
 ### Changed

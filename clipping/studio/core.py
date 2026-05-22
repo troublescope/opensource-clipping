@@ -311,31 +311,31 @@ def proses_klip(
                 )
                 h_ts_parts.append(item_ts)
 
-                # Transition between items (not after the last one)
-                if i < len(items) - 1:
-                    trans_mp4 = f"h_v2_trans_{rank}_{i}.mp4"
-                    trans_ts = f"h_v2_trans_{rank}_{i}.ts"
-                    trans_type = hook_v2_data.get("transition", {}).get("type", "white_flash")
-                    if "glitch" in trans_type:
-                        v2_helpers.create_glitch_transition(
-                            trans_mp4, duration=flash_dur,
-                            width=out_w_v2, height=out_h_v2,
-                        )
-                    else:
-                        v2_helpers.create_white_flash_transition(
-                            trans_mp4, duration=flash_dur,
-                            width=out_w_v2, height=out_h_v2,
-                        )
-                    # Convert to .ts for concat (stream copy — already encoded by v2_helpers)
-                    subprocess.run(
-                        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-                         "-i", trans_mp4, "-c", "copy",
-                         "-bsf:v", "h264_mp4toannexb",
-                         "-f", "mpegts", trans_ts],
-                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                # Transition between items AND after the last item (before main clip)
+                trans_mp4 = f"h_v2_trans_{rank}_{i}.mp4"
+                trans_ts = f"h_v2_trans_{rank}_{i}.ts"
+                trans_type = hook_v2_data.get("transition", {}).get("type", "white_flash") if hook_v2_data else "white_flash"
+                if "glitch" in trans_type:
+                    v2_helpers.create_glitch_transition(
+                        trans_mp4, duration=flash_dur,
+                        width=out_w_v2, height=out_h_v2,
                     )
-                    h_ts_parts.append(trans_ts)
-                    print(f"      ⚡ Transisi {i+1} ({trans_type}) berhasil ditambahkan.")
+                else:
+                    v2_helpers.create_white_flash_transition(
+                        trans_mp4, duration=flash_dur,
+                        width=out_w_v2, height=out_h_v2,
+                    )
+                # Convert to .ts for concat (stream copy — already encoded by v2_helpers)
+                subprocess.run(
+                    ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                     "-i", trans_mp4, "-c", "copy",
+                     "-bsf:v", "h264_mp4toannexb",
+                     "-f", "mpegts", trans_ts],
+                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                h_ts_parts.append(trans_ts)
+                lbl = f"Transisi {i+1}" if i < len(items) - 1 else "Transisi akhir"
+                print(f"      ⚡ {lbl} ({trans_type}) berhasil ditambahkan.")
 
             # Concat all hook v2 pieces into h_ts
             if h_ts_parts:
