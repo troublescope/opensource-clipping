@@ -133,8 +133,12 @@ def buat_file_ass(
     # Calculate scale relative to standard 1080p vertical (1920 height)
     # This ensures typography looks consistent across different render resolutions
     scale_factor = play_res_y / (1920 if _is_vertical_ratio(rasio) else 1080)
-    align = cfg.ass_align_916 if _is_vertical_ratio(rasio) else cfg.ass_align_169
-    margin_v = int((cfg.ass_margin_916 if _is_vertical_ratio(rasio) else cfg.ass_margin_169) * scale_factor)
+    if rasio == "split":
+        align = 5
+        margin_v = 0
+    else:
+        align = cfg.ass_align_916 if _is_vertical_ratio(rasio) else cfg.ass_align_169
+        margin_v = int((cfg.ass_margin_916 if _is_vertical_ratio(rasio) else cfg.ass_margin_169) * scale_factor)
     font_sz = int((cfg.ass_font_916 if _is_vertical_ratio(rasio) else cfg.ass_font_169) * scale_factor)
     margin_lr = int((60 if _is_vertical_ratio(rasio) else 40) * scale_factor)
 
@@ -305,7 +309,10 @@ def buat_file_ass(
             total_stack_h = (
                 sum(l["height"] for l in lines) + (len(lines) - 1) * line_spacing
             )
-            current_y = play_res_y - margin_v - total_stack_h
+            if rasio == "split":
+                current_y = (play_res_y - total_stack_h) / 2
+            else:
+                current_y = play_res_y - margin_v - total_stack_h
 
             for line in lines:
                 start_x = (play_res_x - line["width"]) / 2

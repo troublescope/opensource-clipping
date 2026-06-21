@@ -7,6 +7,13 @@ All notable changes to the **OpenSource Clipping** project will be documented in
 - **Minor (x.Y.z)**: Incremented for new functionality introduced in a backward-compatible manner.
 - **Patch (x.y.Z)**: Incremented for backward-compatible bug fixes or minor patches.
 
+## [v1.6.4] - 2026-06-22
+
+### Changed
+- **Split Mode Subtitles**: Updated subtitle rendering logic to automatically center text vertically when using the `split` ratio. Standard margin and alignment configurations are perfectly preserved and restored for other aspect ratios like `9:16` and `16:9`.
+
+---
+
 ## [v1.6.3] - 2026-06-19
 
 ### Fixed
