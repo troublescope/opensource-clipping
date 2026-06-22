@@ -7,6 +7,17 @@ All notable changes to the **OpenSource Clipping** project will be documented in
 - **Minor (x.Y.z)**: Incremented for new functionality introduced in a backward-compatible manner.
 - **Patch (x.y.Z)**: Incremented for backward-compatible bug fixes or minor patches.
 
+## [v1.7.0] - 2026-06-23
+
+### Added (YouTube Tracker)
+- **Bulk Status Updates**: Added "Select All" and checkbox selection for videos in Duplicates, Source Detail, Channel Detail, and Search pages to mark multiple videos as Used, Candidate, Unused, or Skipped at once.
+- **Quick Actions**: Added a quick "✓ Used" button on video rows to mark them instantly without opening the edit modal.
+- **Improved Dashboard UI**: Split the "Add Playlist" and "Add Manual Video" forms into always-visible side-by-side cards.
+- **Large Playlist Support**: Fixed an issue where playlists with >100 videos were being truncated. Added robust 3x retry logic with exponential backoff for fetching metadata.
+- **Channel Avatars**: YouTube channel profile pictures now display on the Channels grid and inside the Channel Detail page headers.
+
+---
+
 ## [v1.6.4] - 2026-06-22
 
 ### Changed
