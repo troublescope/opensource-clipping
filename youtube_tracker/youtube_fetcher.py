@@ -9,7 +9,7 @@ import json
 import time
 import sys
 
-MAX_RETRIES = 5
+MAX_RETRIES = 2
 RETRY_DELAY_BASE = 2  # seconds, exponential backoff: 2, 4, 8
 
 
