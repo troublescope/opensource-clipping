@@ -8,6 +8,13 @@ All notable changes to the **OpenSource Clipping** project will be documented in
 - **Patch (x.y.Z)**: Incremented for backward-compatible bug fixes or minor patches.
 
 
+## [v1.7.3] - 2026-06-24
+
+### Added
+- **Reschedule YouTube**: Added a new CLI tool `youtube_uploader/reschedule_youtube.py` to reschedule YouTube videos that are still scheduled or private.
+- **Reschedule YouTube**: Updated `youtube_uploader/reschedule_youtube.py` to use the new `YouTubeUploader` class and added proper error handling for API quota and rate limits.
+- **Reschedule YouTube**: Updated `youtube_uploader/reschedule_youtube.py` to support rescheduling videos with `part="status"` by including all necessary fields in the update request.
+
 ## [v1.7.2] - 2026-06-23
 
 ### Added
