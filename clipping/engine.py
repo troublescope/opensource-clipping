@@ -486,6 +486,11 @@ def _generate_json_with_retry(client, model, fallback_model, contents, config):
     ) from last_exc
 
 
+# ==== KONFIGURASI DURASI KLIP ====
+# Ubah nilai di bawah ini jika ingin mengganti batas durasi klip (dalam detik)
+MIN_CLIP_DURATION = 20
+MAX_CLIP_DURATION = 179
+
 def get_analysis_prompt(transkrip_lengkap: str, jumlah_clip: int, durasi_hook: int, cfg=None) -> str:
     """Centralized prompt for both Gemini and NVIDIA providers."""
     # Build optional Hook V2 prompt section
@@ -536,7 +541,7 @@ TUGAS UTAMA:
 - Semua output harus sangat relevan dengan isi klip, bukan isi video penuh secara umum.
 
 ATURAN PEMILIHAN KLIP & VIRAL-BILITY:
-- Durasi klip harus 30-180 detik.
+- Durasi klip harus {MIN_CLIP_DURATION}-{MAX_CLIP_DURATION} detik.
 - Pilih bagian yang punya emosi, konflik, kejutan, insight, opini kuat, pelajaran praktis, atau punchline jelas.
 - Evaluasi kekuatan viral (viral-bility) dan berikan "viral_score" (1-100) yang merepresentasikan seberapa viral suatu klip.
   - 90-100: Sangat berpotensi fyp/viral, emosi/konflik kuat, hook sangat nendang.
@@ -568,7 +573,7 @@ ATURAN PEMOTONGAN TIMING:
 - Jangan potong terlalu awal jika kalimat masih menggantung.
 - Jangan lanjutkan klip terlalu lama setelah inti pesan selesai.
 - Klip harus tetap bisa dipahami tanpa harus menonton bagian sebelum atau sesudahnya.
-- Jika ada dua momen kuat yang terlalu berdekatan dan saling mendukung, boleh digabung selama durasi tetap 30-180 detik.
+- Jika ada dua momen kuat yang terlalu berdekatan dan saling mendukung, boleh digabung selama durasi tetap {MIN_CLIP_DURATION}-{MAX_CLIP_DURATION} detik.
 - Jika ada dua momen kuat tetapi angle-nya berbeda, pisahkan sebagai kandidat klip berbeda.
 
 PENILAIAN INTERNAL VIRAL_SCORE:
