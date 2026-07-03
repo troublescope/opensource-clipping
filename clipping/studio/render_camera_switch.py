@@ -57,6 +57,7 @@ def buat_video_camera_switch(
     diarization_data,
     cfg,
     label="CameraSwitch",
+    video_encoder=None,
 ):
     """
     Render a dynamic camera-switch video, which cuts between active speakers automatically.
@@ -93,7 +94,8 @@ def buat_video_camera_switch(
     BLUR_KERNEL = 99
     BLUR_SIGMA = 30
 
-    video_encoder = detect_video_encoder(cfg)
+    if video_encoder is None:
+        video_encoder = detect_video_encoder(cfg)
 
     # ---------------------------------------------------------------- face detector
     yolo_model = None

@@ -20,7 +20,8 @@ from clipping.config import (
     ASS_MARGIN_169,
     ASS_MARGIN_916,
     BGM_BASE_VOLUME,
-    BGM_POOL,
+    BGM_DIR,
+    BGM_MOODS,
     DAFTAR_FONT,
     GEMINI_FALLBACK_MODEL,
     NAMA_FONT_THUMBNAIL,
@@ -180,9 +181,12 @@ def build_config_from_payload(
         url_mediapipe_model=URL_MEDIAPIPE_MODEL,
         # BGM
         bgm_base_volume=BGM_BASE_VOLUME,
-        bgm_pool=BGM_POOL,
+        bgm_moods=BGM_MOODS,
+        bgm_mode="ducking",
+        bgm_dir=BGM_DIR,
         # Whisper
         use_dlp_subs=payload.get("use_dlp_subs", False),
+        use_yt_transcript=payload.get("use_yt_transcript", True),
         whisper_model=payload.get("whisper_model", "large-v3"),
         whisper_device=payload.get("whisper_device", "cuda"),
         whisper_compute_type=payload.get("whisper_compute_type", "float16"),

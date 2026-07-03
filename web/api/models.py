@@ -108,6 +108,7 @@ class JobCreateRequest(BaseModel):
     whisper_device: WhisperDevice = WhisperDevice.CUDA
     whisper_compute_type: str = "float16"
     use_dlp_subs: bool = False
+    use_yt_transcript: bool = True
 
     # AI
     ai_provider: AIProvider = AIProvider.GEMINI

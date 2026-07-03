@@ -555,8 +555,8 @@ def main():
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n  Shutting down...")
-        import os
-        os._exit(0)
+        import sys
+        sys.exit(0)
     finally:
         server.server_close()
 

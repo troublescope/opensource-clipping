@@ -57,6 +57,7 @@ def buat_video_split_screen(
     diarization_data,
     cfg,
     label="SplitScreen",
+    video_encoder=None,
 ):
     """
     Render a split-screen video layout containing two vertically stacked views for multi-speaker contexts.
@@ -92,7 +93,8 @@ def buat_video_split_screen(
     INACTIVE_ALPHA = 0.15  # darkening for inactive speaker panel
     ACTIVE_BORDER = 3  # px, highlight border for active speaker
 
-    video_encoder = detect_video_encoder(cfg)
+    if video_encoder is None:
+        video_encoder = detect_video_encoder(cfg)
 
     # Setup face detector
     yolo_model = None

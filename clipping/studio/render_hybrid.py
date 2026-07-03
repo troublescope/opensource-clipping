@@ -64,6 +64,7 @@ def buat_video_hybrid(
     cfg,
     broll_data=None,
     label="Hybrid",
+    video_encoder=None,
 ):
     """
     Render a hybrid video combining main footage and b-roll with dynamic panning based on face tracking.

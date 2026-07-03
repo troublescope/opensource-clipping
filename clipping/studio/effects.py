@@ -66,21 +66,25 @@ def siapkan_glitch_video(rasio, cfg, video_encoder, source_h=1080, custom_dims=N
     Raises:
         Exceptions caught internally and returns None.
     """
+    # Use outputs_dir for temp files so concurrent jobs do not collide
+    _td = getattr(cfg, "outputs_dir", os.getcwd())
+    _glitch_raw = os.path.join(_td, "glitch_raw.mp4")
+
     if custom_dims:
         out_w, out_h = custom_dims
     else:
         out_w, out_h = _get_render_dims(cfg, rasio, source_h=source_h)
     
     # Use dimensions in filename to allow multiple cached versions
-    glitch_ts = f"glitch_ready_{out_w}x{out_h}.ts"
+    glitch_ts = os.path.join(_td, f"glitch_ready_{out_w}x{out_h}.ts")
     if os.path.exists(glitch_ts):
         return glitch_ts
 
-    if not os.path.exists("glitch_raw.mp4"):
+    if not os.path.exists(_glitch_raw):
         YoutubeDL(
             {
                 "format": "best[ext=mp4]",
-                "outtmpl": "glitch_raw.mp4",
+                "outtmpl": _glitch_raw,
                 "quiet": True,
             }
         ).download([cfg.url_glitch_video])
@@ -108,7 +112,7 @@ def siapkan_glitch_video(rasio, cfg, video_encoder, source_h=1080, custom_dims=N
             "-t",
             "1",
             "-i",
-            "glitch_raw.mp4",
+            _glitch_raw,
             "-vf",
             filter_g,
         ]

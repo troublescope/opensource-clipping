@@ -135,15 +135,27 @@ def _run_pipeline_sync(job_id: str, payload: dict) -> None:
         transkrip_lengkap = ""
         data_segmen = []
 
-        # Try YouTube JSON3 subs first
-        json3_files = glob.glob(cfg.file_video_asli.replace(".mp4", ".*.json3"))
-        file_json3 = json3_files[0] if json3_files else None
-
-        if source_platform == "youtube" and getattr(cfg, "use_dlp_subs", False) and file_json3 and os.path.exists(file_json3):
-            transkrip_lengkap, data_segmen = engine.parse_youtube_json3_subs(
-                file_json3, max_words_per_subtitle=cfg.max_kata_per_subtitle
+        # Tier 1: YouTube Transcript API (fastest, no download needed)
+        if source_platform == "youtube" and getattr(cfg, "use_yt_transcript", True) and cfg.url_youtube:
+            store.update_progress(
+                job_id, step="transcribe", step_number=2, total_steps=7,
+                message="Mencoba YouTube Transcript API...", percent=16.0,
+            )
+            transkrip_lengkap, data_segmen = engine.fetch_youtube_transcript(
+                cfg.url_youtube, max_words_per_subtitle=cfg.max_kata_per_subtitle
             )
 
+        # Tier 2: yt-dlp JSON3 subtitles
+        if not transkrip_lengkap or not data_segmen:
+            json3_files = glob.glob(cfg.file_video_asli.replace(".mp4", ".*.json3"))
+            file_json3 = json3_files[0] if json3_files else None
+
+            if source_platform == "youtube" and getattr(cfg, "use_dlp_subs", False) and file_json3 and os.path.exists(file_json3):
+                transkrip_lengkap, data_segmen = engine.parse_youtube_json3_subs(
+                    file_json3, max_words_per_subtitle=cfg.max_kata_per_subtitle
+                )
+
+        # Tier 3: Whisper (last resort)
         if not transkrip_lengkap or not data_segmen:
             transkrip_lengkap, data_segmen = engine.transcribe_video(
                 cfg.file_video_asli,

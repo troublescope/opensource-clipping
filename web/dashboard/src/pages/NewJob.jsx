@@ -33,6 +33,7 @@ function NewJob() {
   const [hookV2, setHookV2] = useState(false)
   const [silenceTrim, setSilenceTrim] = useState(false)
   const [useDlpSubs, setUseDlpSubs] = useState(false)
+  const [useYtTranscript, setUseYtTranscript] = useState(true)
   const [loadGeminiJson, setLoadGeminiJson] = useState(false)
 
   // Load from location state if user clicked "Clone / Rerun"
@@ -60,6 +61,7 @@ function NewJob() {
       if (config.hook_v2 !== undefined) setHookV2(config.hook_v2)
       if (config.silence_trim !== undefined) setSilenceTrim(config.silence_trim)
       if (config.use_dlp_subs !== undefined) setUseDlpSubs(config.use_dlp_subs)
+      if (config.use_yt_transcript !== undefined) setUseYtTranscript(config.use_yt_transcript)
       if (config.no_subs !== undefined) setNoSubs(config.no_subs)
       
       // Default to true when cloning to save AI tokens, user can untoggle
@@ -120,6 +122,7 @@ function NewJob() {
         hook_v2: hookV2,
         silence_trim: silenceTrim,
         use_dlp_subs: useDlpSubs,
+        use_yt_transcript: useYtTranscript,
         load_gemini_json: loadGeminiJson,
         ...(reuseJobId.trim() ? { reuse_job_id: reuseJobId.trim() } : {}),
       }
@@ -313,6 +316,7 @@ function NewJob() {
             <ToggleRow label="Karaoke Effect" desc="Word-by-word highlight" checked={useKaraoke} onChange={setUseKaraoke} />
             <ToggleRow label="Hook V2" desc="Multi-hook intro clips" checked={hookV2} onChange={setHookV2} />
             <ToggleRow label="Silence Trim" desc="Remove dead air" checked={silenceTrim} onChange={setSilenceTrim} />
+            <ToggleRow label="YT Transcript API" desc="Fast transcript (no Whisper)" checked={useYtTranscript} onChange={setUseYtTranscript} />
             <ToggleRow label="YouTube Subs" desc="Skip Whisper if available" checked={useDlpSubs} onChange={setUseDlpSubs} />
             <ToggleRow label="No Subtitles" desc="Render without text" checked={noSubs} onChange={setNoSubs} />
             <ToggleRow label="Bypass AI" desc="Reuse gemini JSON (if exist)" checked={loadGeminiJson} onChange={setLoadGeminiJson} />

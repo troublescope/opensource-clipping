@@ -18,3 +18,5 @@ fastapi
 uvicorn
 python-multipart
 pydantic
+openai
+youtube-transcript-api

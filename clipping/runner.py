@@ -44,31 +44,40 @@ def run_pipeline(cfg) -> list[dict]:
         source_platform=source_platform,
     )
 
-    # Step 2 — Transcribe
+    # Step 2 — Transcribe (3-tier fallback: YouTube Transcript API → yt-dlp JSON3 → Whisper)
     transkrip_lengkap = ""
     data_segmen = []
 
-    import glob
+    # --- Tier 1: YouTube Transcript API (fastest, no download needed) ---
+    if source_platform == "youtube" and getattr(cfg, "use_yt_transcript", True) and cfg.url_youtube:
+        transkrip_lengkap, data_segmen = engine.fetch_youtube_transcript(
+            cfg.url_youtube, max_words_per_subtitle=cfg.max_kata_per_subtitle
+        )
+        if transkrip_lengkap and data_segmen:
+            print("✅ Transcript dari YouTube Transcript API, melewati Whisper.")
 
-    # Mencari file json3 apapun (karena bahasanya bisa .id.json3 atau .en.json3)
-    json3_files = glob.glob(cfg.file_video_asli.replace(".mp4", ".*.json3"))
-    file_json3 = json3_files[0] if json3_files else None
+    # --- Tier 2: yt-dlp JSON3 subtitles ---
+    if not transkrip_lengkap or not data_segmen:
+        import glob
 
-    # Only run YouTube JSON3 subtitle search for YouTube sources
-    if source_platform == "youtube":
-        if (
-            getattr(cfg, "use_dlp_subs", False)
-            and file_json3
-            and os.path.exists(file_json3)
-        ):
-            transkrip_lengkap, data_segmen = engine.parse_youtube_json3_subs(
-                file_json3, max_words_per_subtitle=cfg.max_kata_per_subtitle
-            )
-            if transkrip_lengkap and data_segmen:
-                print(
-                    f"✅ Berhasil memparsing subtitle dari YouTube ({os.path.basename(file_json3)}), melewati proses Whisper."
+        json3_files = glob.glob(cfg.file_video_asli.replace(".mp4", ".*.json3"))
+        file_json3 = json3_files[0] if json3_files else None
+
+        if source_platform == "youtube":
+            if (
+                getattr(cfg, "use_dlp_subs", False)
+                and file_json3
+                and os.path.exists(file_json3)
+            ):
+                transkrip_lengkap, data_segmen = engine.parse_youtube_json3_subs(
+                    file_json3, max_words_per_subtitle=cfg.max_kata_per_subtitle
                 )
+                if transkrip_lengkap and data_segmen:
+                    print(
+                        f"✅ Berhasil memparsing subtitle dari YouTube ({os.path.basename(file_json3)}), melewati proses Whisper."
+                    )
 
+    # --- Tier 3: Whisper (always as last resort) ---
     if not transkrip_lengkap or not data_segmen:
         transkrip_lengkap, data_segmen = engine.transcribe_video(
             cfg.file_video_asli,

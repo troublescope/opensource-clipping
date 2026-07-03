@@ -366,11 +366,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Enable advanced typography on hook",
     )
 
-    # --- Whisper ---
+    # --- Subtitle / Transcript Sources ---
     p.add_argument(
         "--use-dlp-subs",
         action="store_true",
         help="Use yt-dlp to download auto/manual subtitles to speed up process (skipping Whisper if found)",
+    )
+    p.add_argument(
+        "--no-yt-transcript",
+        action="store_true",
+        default=False,
+        help="Disable YouTube Transcript API fallback (by default it is tried first for YouTube sources before Whisper).",
     )
     p.add_argument(
         "--whisper-model", default=WHISPER_MODEL, help="Faster-Whisper model size"
@@ -711,6 +717,7 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         bgm_dir=BGM_DIR,
         # Whisper
         use_dlp_subs=args.use_dlp_subs,
+        use_yt_transcript=not args.no_yt_transcript,
         whisper_model=args.whisper_model,
         whisper_device=args.whisper_device,
         whisper_compute_type=args.whisper_compute_type,

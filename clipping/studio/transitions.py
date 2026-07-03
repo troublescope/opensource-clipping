@@ -288,7 +288,10 @@ def prepare_transition_clip(
     dur = clip_duration or entry.get("duration") or 3.0
 
     video_id = entry["url"].split("v=")[-1].split("&")[0]
-    ts_path = f"transition_{video_id}_{out_w}x{out_h}.ts"
+    # Use a temp dir derived from the cache dir to avoid CWD pollution
+    _tmp_dir = os.path.join(os.path.dirname(raw_path), "ts_cache")
+    os.makedirs(_tmp_dir, exist_ok=True)
+    ts_path = os.path.join(_tmp_dir, f"transition_{video_id}_{out_w}x{out_h}.ts")
 
     if os.path.exists(ts_path):
         return ts_path

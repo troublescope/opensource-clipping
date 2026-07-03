@@ -149,6 +149,8 @@ async def job_status_sse(job_id: str):
 
     async def event_stream():
         last_progress = None
+        idle_count = 0
+        max_idle_rounds = 360  # 360 * 5s = 30min timeout for no-progress state
         terminal_states = {
             JobStatus.COMPLETED.value,
             JobStatus.FAILED.value,
@@ -186,6 +188,12 @@ async def job_status_sse(job_id: str):
             if event_json != last_progress:
                 yield f"data: {event_json}\n\n"
                 last_progress = event_json
+                idle_count = 0
+            else:
+                idle_count += 1
+                if idle_count >= max_idle_rounds:
+                    yield f"data: {json.dumps({'type': 'timeout', 'message': 'SSE idle timeout — worker may have stalled.'})}\n\n"
+                    break
 
             # Stop streaming on terminal states
             if status in terminal_states:

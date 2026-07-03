@@ -334,6 +334,202 @@ def parse_youtube_json3_subs(json_path: str, max_words_per_subtitle: int = 5) ->
         return "", []
 
 
+# ==============================================================================
+# TAHAP 2b: YOUTUBE TRANSCRIPT API (fast, no download needed)
+# ==============================================================================
+
+def _extract_youtube_video_id(url: str) -> str | None:
+    """Extract the 11-char YouTube video ID from various URL formats."""
+    import re as _re
+    patterns = [
+        _re.compile(r'(?:youtube\.com/watch\?.*v=)([A-Za-z0-9_-]{11})'),
+        _re.compile(r'(?:youtu\.be/)([A-Za-z0-9_-]{11})'),
+        _re.compile(r'(?:youtube\.com/embed/)([A-Za-z0-9_-]{11})'),
+        _re.compile(r'(?:youtube\.com/shorts/)([A-Za-z0-9_-]{11})'),
+        _re.compile(r'(?:youtube\.com/v/)([A-Za-z0-9_-]{11})'),
+    ]
+    for pat in patterns:
+        m = pat.search(url)
+        if m:
+            return m.group(1)
+    return None
+
+
+def fetch_youtube_transcript(
+    video_url: str,
+    max_words_per_subtitle: int = 5,
+) -> tuple[str, list[dict]]:
+    """
+    Fetch transcript using the youtube-transcript-api package.
+
+    This is the fastest method — no video download or Whisper needed.
+    It queries YouTube's internal transcript API directly.
+
+    Supports both the newer API (v0.6+, uses ``fetch``) and the older
+    API (v0.5, uses ``get_transcript``).
+
+    Parameters
+    ----------
+    video_url : str
+        YouTube video URL or 11-char video ID.
+    max_words_per_subtitle : int
+        Max words per subtitle group (same as Whisper/JSON3 pipeline).
+
+    Returns
+    -------
+    tuple[str, list[dict]]
+        (transkrip_lengkap, data_segmen) in the same format as
+        ``parse_youtube_json3_subs`` and ``transcribe_video``.
+        Returns ("", []) on failure.
+    """
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+    except ImportError:
+        print("      ℹ️ youtube-transcript-api not installed, skip.")
+        return "", []
+
+    video_id = _extract_youtube_video_id(video_url)
+    if not video_id:
+        import re as _re
+        if _re.match(r'^[A-Za-z0-9_-]{11}$', video_url.strip()):
+            video_id = video_url.strip()
+        else:
+            return "", []
+
+    print(f"      🔍 Mencoba YouTube Transcript API (video_id: {video_id})...")
+
+    # --- Fetch transcript data (handle both new and old API versions) ---
+    transcript_data = None
+
+    # Strategy: try preferred languages first, then any available
+    preferred_langs = ['en', 'id']
+
+    try:
+        api = YouTubeTranscriptApi()
+
+        # New API (v0.6+): use fetch()
+        for langs in [preferred_langs, ['en'], ['id']]:
+            try:
+                result = api.fetch(video_id, languages=langs)
+                if result and result.snippets:
+                    # Convert snippet objects to dicts
+                    transcript_data = [
+                        {'text': s.text, 'start': float(s.start), 'duration': float(s.duration)}
+                        for s in result.snippets
+                    ]
+                    print(f"      📝 Transcript language: {result.language_code}")
+                    break
+            except Exception:
+                continue
+
+        # If preferred langs failed, list available and pick first
+        if not transcript_data:
+            try:
+                available = api.list(video_id)
+                for t in available:
+                    try:
+                        result = api.fetch(video_id, languages=[t.language_code])
+                        if result and result.snippets:
+                            transcript_data = [
+                                {'text': s.text, 'start': float(s.start), 'duration': float(s.duration)}
+                                for s in result.snippets
+                            ]
+                            print(f"      📝 Transcript language: {t.language_code} ({t.language})")
+                            break
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+    except AttributeError:
+        # Old API (v0.5): use get_transcript() static method
+        for langs in [preferred_langs, ['en'], ['id'], None]:
+            try:
+                if langs:
+                    transcript_data = YouTubeTranscriptApi.get_transcript(
+                        video_id, languages=langs
+                    )
+                else:
+                    transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
+                if transcript_data:
+                    break
+            except Exception:
+                continue
+
+    if not transcript_data:
+        print("      ⚠️ YouTube Transcript API tidak menemukan transcript.")
+        return "", []
+
+    # --- Convert phrase-level transcript to word-level segments ---
+    import re as _re
+    flat_words = []
+
+    for snippet in transcript_data:
+        seg_start = float(snippet.get('start', 0))
+        seg_duration = float(snippet.get('duration', 0))
+        seg_end = seg_start + seg_duration
+        text = snippet.get('text', '')
+
+        # Clean text
+        clean_text = text.replace('\n', ' ').replace('\u200b', '').strip()
+        clean_text = _re.sub(r'[^\x00-\x7F\u00C0-\u017F\u2018-\u201F\u2026]', '', clean_text)
+
+        if not clean_text:
+            continue
+
+        words = clean_text.split()
+        if not words:
+            continue
+
+        duration_per_word = (seg_end - seg_start) / len(words) if seg_end > seg_start else 0.3
+
+        for w_idx, w_text in enumerate(words):
+            w_start = seg_start + (w_idx * duration_per_word)
+            w_end = w_start + duration_per_word
+            flat_words.append({
+                'word': w_text,
+                'start': w_start,
+                'end': w_end,
+            })
+
+    if not flat_words:
+        return "", []
+
+    # Adjust end times to prevent overlaps
+    for i in range(len(flat_words) - 1):
+        if flat_words[i]['end'] > flat_words[i + 1]['start']:
+            flat_words[i]['end'] = max(
+                flat_words[i]['start'] + 0.1,
+                flat_words[i + 1]['start']
+            )
+
+    # Group into chunks of max_words_per_subtitle
+    transkrip_lengkap = ""
+    data_segmen = []
+    chunk_words = []
+    chunk_start = 0.0
+
+    for i, w in enumerate(flat_words):
+        if len(chunk_words) == 0:
+            chunk_start = w['start']
+
+        chunk_words.append(w)
+
+        if len(chunk_words) == max_words_per_subtitle or i == len(flat_words) - 1:
+            chunk_text = ' '.join(cw['word'] for cw in chunk_words)
+            chunk_end = w['end']
+            transkrip_lengkap += f"[{chunk_start:.1f} - {chunk_end:.1f}] {chunk_text}\n"
+            data_segmen.append({
+                'start': chunk_start,
+                'end': chunk_end,
+                'words': chunk_words,
+            })
+            chunk_words = []
+
+    print(f"      ✅ YouTube Transcript API berhasil ({len(data_segmen)} segmen, {len(flat_words)} kata).")
+    return transkrip_lengkap, data_segmen
+
+
 def transcribe_video(
     video_path: str,
     max_words_per_subtitle: int = 5,
@@ -353,11 +549,31 @@ def transcribe_video(
     """
     print("[2/3] Memulai transkripsi dengan Faster-Whisper (Level Per-Kata)...")
 
+    # Resolve "auto" device: detect CUDA availability and adjust compute_type
+    # accordingly. float16 only works on GPU; CPU needs int8 or int8_float32.
+    if device == "auto":
+        try:
+            import torch
+            if torch.cuda.is_available():
+                device = "cuda"
+                if compute_type == "float16":
+                    pass  # float16 is fine for CUDA
+            else:
+                device = "cpu"
+                if compute_type in ("float16", "float32"):
+                    compute_type = "int8"
+                    print("      ℹ️ Auto: GPU tidak tersedia, fallback ke CPU (int8)")
+        except ImportError:
+            device = "cpu"
+            if compute_type in ("float16", "float32"):
+                compute_type = "int8"
+                print("      ℹ️ Auto: PyTorch tidak tersedia, fallback ke CPU (int8)")
+
     # Langkah-langkah ini berjalan tanpa output di dalam faster-whisper sebelum
     # segmen pertama dihasilkan, jadi kita umumkan tiap fase — kalau tidak, run
     # pertama di CPU (download model + decode seluruh audio) terlihat seperti hang.
     print(
-        f"      ⏳ Memuat model Whisper '{model_size}' ({device})"
+        f"      ⏳ Memuat model Whisper '{model_size}' ({device}/{compute_type})"
         " — unduhan pertama kali bisa memakan waktu...",
         flush=True,
     )

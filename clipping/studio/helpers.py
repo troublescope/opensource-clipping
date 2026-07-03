@@ -24,11 +24,28 @@ def escape_ffmpeg_filter_value(value: str) -> str:
     """
     Escape a value so it is safe in FFmpeg filter expressions.
 
+    On Windows, backslashes in paths (e.g. ``C:\\Users\\name\\file.ass``)
+    are converted to forward slashes first, because FFmpeg's filter parser
+    does not handle raw backslashes correctly.  Colons are then escaped
+    so they are not treated as filter-option separators.
+
     Args:
         value: Raw value to place inside an FFmpeg filter string.
 
     Returns:
         Escaped value string for FFmpeg filter usage.
     """
-    return str(value).replace("\\", r"\\").replace(":", r"\:").replace("'", r"\'")
+    # Convert backslashes to forward slashes for FFmpeg compatibility.
+    # This is essential on Windows where os.path.abspath returns paths
+    # like 'C:\Users\name\file.ass'. FFmpeg's filter parser cannot handle
+    # raw backslashes — it expects forward slashes. Doubling them (the old
+    # approach) also fails because FFmpeg interprets '\\' as a literal
+    # backslash in the filename, not as a path separator.
+    value = str(value).replace("\\", "/")
+    # Escape colons — FFmpeg uses ':' as a filter-option separator, so a
+    # drive-letter colon (C:) or any colon in the path must be escaped.
+    value = value.replace(":", r"\:")
+    # Escape single quotes.
+    value = value.replace("'", r"\'")
+    return value
 

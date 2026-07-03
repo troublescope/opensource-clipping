@@ -197,17 +197,21 @@ def proses_klip(
     typography_plan = clip.get("typography_plan", [])
     siapkan_font_tipografi(cfg)
 
+    # Use outputs_dir for temp files so concurrent jobs (web API) don't collide.
+    # In CLI mode, outputs_dir is ./outputs; in web API mode, it's ./outputs/{job_id}.
+    _td = cfg.outputs_dir
     h_ts, m_ts, a_hook, a_main = (
-        f"h_{rank}.ts",
-        f"m_{rank}.ts",
-        f"ah_{rank}.ass",
-        f"am_{rank}.ass",
+        os.path.join(_td, f"h_{rank}.ts"),
+        os.path.join(_td, f"m_{rank}.ts"),
+        os.path.join(_td, f"ah_{rank}.ass"),
+        os.path.join(_td, f"am_{rank}.ass"),
     )
-    h_silent, m_silent = f"h_silent_{rank}.mp4", f"m_silent_{rank}.mp4"
+    h_silent = os.path.join(_td, f"h_silent_{rank}.mp4")
+    m_silent = os.path.join(_td, f"m_silent_{rank}.mp4")
     
     dev_dual = getattr(cfg, "dev_mode_with_output", False)
-    h_ts_dev = f"h_{rank}_dev.ts"
-    m_ts_dev = f"m_{rank}_dev.ts"
+    h_ts_dev = os.path.join(_td, f"h_{rank}_dev.ts")
+    m_ts_dev = os.path.join(_td, f"m_{rank}_dev.ts")
     
     aktif_hook = cfg.use_hook_glitch
 
@@ -239,7 +243,7 @@ def proses_klip(
         print(f"   🎥 Mendownload {len(broll_list)} video B-Roll dari Pexels...")
         for i, br in enumerate(broll_list):
             q = br.get("search_query", "nature")
-            file_broll = f"temp_broll_{rank}_{i}.mp4"
+            file_broll = os.path.join(_td, f"temp_broll_{rank}_{i}.mp4")
             if download_pexels_broll(q, rasio, file_broll, cfg.pexels_api_key):
                 br_copy = dict(br)
                 br_copy["filepath"] = file_broll
@@ -278,15 +282,16 @@ def proses_klip(
             for i, item in enumerate(items):
                 item_start = float(item["start_time"])
                 item_end = float(item["end_time"])
-                item_silent = f"h_v2_silent_{rank}_{i}.mp4"
-                item_ts = f"h_v2_ts_{rank}_{i}.ts"
+                item_silent = os.path.join(_td, f"h_v2_silent_{rank}_{i}.mp4")
+                item_ts = os.path.join(_td, f"h_v2_ts_{rank}_{i}.ts")
 
                 # Render visual (face-tracked crop)
                 buat_video_hybrid(
                     file_hook_src, item_silent,
                     item_start, item_end, rasio, cfg,
                     label=f"Rank {rank} HookV2 Item {i}",
-                )
+                video_encoder=video_encoder,
+            )
 
                 # Build video filter + audio mux
                 vf_parts = []
@@ -312,8 +317,8 @@ def proses_klip(
                 h_ts_parts.append(item_ts)
 
                 # Transition between items AND after the last item (before main clip)
-                trans_mp4 = f"h_v2_trans_{rank}_{i}.mp4"
-                trans_ts = f"h_v2_trans_{rank}_{i}.ts"
+                trans_mp4 = os.path.join(_td, f"h_v2_trans_{rank}_{i}.mp4")
+                trans_ts = os.path.join(_td, f"h_v2_trans_{rank}_{i}.ts")
                 trans_type = hook_v2_data.get("transition", {}).get("type", "white_flash") if hook_v2_data else "white_flash"
                 if "glitch" in trans_type:
                     v2_helpers.create_glitch_transition(
@@ -339,7 +344,7 @@ def proses_klip(
 
             # Concat all hook v2 pieces into h_ts
             if h_ts_parts:
-                concat_str = "concat:" + "|".join(h_ts_parts)
+                concat_str = "concat:" + "|".join(p.replace("\\", "/") for p in h_ts_parts)
                 subprocess.run(
                     ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
                      "-i", concat_str, "-c", "copy", h_ts],
@@ -351,7 +356,7 @@ def proses_klip(
                 if os.path.exists(tf):
                     os.remove(tf)
             for i in range(len(items)):
-                for ext_f in [f"h_v2_silent_{rank}_{i}.mp4", f"h_v2_trans_{rank}_{i}.mp4"]:
+                for ext_f in [os.path.join(_td, f"h_v2_silent_{rank}_{i}.mp4"), os.path.join(_td, f"h_v2_trans_{rank}_{i}.mp4")]:
                     if os.path.exists(ext_f):
                         os.remove(ext_f)
 
@@ -368,7 +373,8 @@ def proses_klip(
                     diarization_data if not custom_hook else None,
                     cfg,
                     label=f"Rank {rank} Hook SplitScreen",
-                )
+                video_encoder=video_encoder,
+            )
             elif use_camera_switch:
                 print("   📸 [Hook] Camera switch render...")
                 get_x_h = buat_video_camera_switch(
@@ -380,7 +386,8 @@ def proses_klip(
                     diarization_data if not custom_hook else None,
                     cfg,
                     label=f"Rank {rank} Hook CameraSwitch",
-                )
+                video_encoder=video_encoder,
+            )
             else:
                 print("   📸 [Hook] Hybrid render...")
                 get_x_h = buat_video_hybrid(
@@ -391,7 +398,8 @@ def proses_klip(
                     rasio,
                     cfg,
                     label=f"Rank {rank} Hook",
-                )
+                video_encoder=video_encoder,
+            )
             
             aktif_advanced_hook = cfg.use_advanced_text_on_hook
             if not cfg.no_subs and not custom_hook:
@@ -466,9 +474,9 @@ def proses_klip(
             for idx, seg in enumerate(keep_segments):
                 s_start = float(seg["start_time"])
                 s_end = float(seg["end_time"])
-                s_silent = f"m_seg_silent_{rank}_{idx}.mp4"
-                s_ass = f"m_seg_ass_{rank}_{idx}.ass"
-                s_ts = f"m_seg_ts_{rank}_{idx}.ts"
+                s_silent = os.path.join(_td, f"m_seg_silent_{rank}_{idx}.mp4")
+                s_ass = os.path.join(_td, f"m_seg_ass_{rank}_{idx}.ass")
+                s_ts = os.path.join(_td, f"m_seg_ts_{rank}_{idx}.ts")
 
                 # Render visual per segment
                 if use_split:
@@ -476,19 +484,22 @@ def proses_klip(
                         cfg.file_video_asli, s_silent, s_start, s_end,
                         rasio, diarization_data, cfg,
                         label=f"Rank {rank} Seg {idx} SplitScreen",
-                    )
+                    video_encoder=video_encoder,
+            )
                 elif use_camera_switch:
                     get_x_main = buat_video_camera_switch(
                         cfg.file_video_asli, s_silent, s_start, s_end,
                         rasio, diarization_data, cfg,
                         label=f"Rank {rank} Seg {idx} CameraSwitch",
-                    )
+                    video_encoder=video_encoder,
+            )
                 else:
                     get_x_main = buat_video_hybrid(
                         cfg.file_video_asli, s_silent, s_start, s_end,
                         rasio, cfg, broll_aktif,
                         label=f"Rank {rank} Seg {idx} Hybrid",
-                    )
+                    video_encoder=video_encoder,
+            )
 
                 # Subtitle for this segment
                 if not cfg.no_subs:
@@ -524,7 +535,7 @@ def proses_klip(
                 seg_ts_parts.append(s_ts)
 
             # Concat all segments into m_ts
-            concat_str_seg = "concat:" + "|".join(seg_ts_parts)
+            concat_str_seg = "concat:" + "|".join(p.replace("\\", "/") for p in seg_ts_parts)
             subprocess.run(
                 ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
                  "-i", concat_str_seg, "-c", "copy", m_ts],
@@ -536,7 +547,7 @@ def proses_klip(
                 if os.path.exists(tf):
                     os.remove(tf)
             for idx in range(len(keep_segments)):
-                for ext_f in [f"m_seg_silent_{rank}_{idx}.mp4", f"m_seg_ass_{rank}_{idx}.ass"]:
+                for ext_f in [os.path.join(_td, f"m_seg_silent_{rank}_{idx}.mp4"), os.path.join(_td, f"m_seg_ass_{rank}_{idx}.ass")]:
                     if os.path.exists(ext_f):
                         os.remove(ext_f)
 
@@ -562,7 +573,7 @@ def proses_klip(
 
             if aktif_bgm and file_bgm:
                 print("   🎵 Applying BGM to segmented clip...")
-                m_ts_bgm = f"m_bgm_{rank}.ts"
+                m_ts_bgm = os.path.join(_td, f"m_bgm_{rank}.ts")
                 seg_total_dur = sum(float(s["end_time"]) - float(s["start_time"]) for s in keep_segments)
                 bgm_mode = getattr(cfg, "bgm_mode", "ducking")
                 filter_complex_seg = build_bgm_filter(
@@ -596,7 +607,8 @@ def proses_klip(
                     diarization_data,
                     cfg,
                     label=f"Rank {rank} Main SplitScreen",
-                )
+                video_encoder=video_encoder,
+            )
             elif use_camera_switch:
                 # Note: Camera Switch doesn't currently support dev_mode frames but we pass it anyway
                 print("   📸 [Main] Camera switch render (Visual)...")
@@ -609,7 +621,8 @@ def proses_klip(
                     diarization_data,
                     cfg,
                     label=f"Rank {rank} Main CameraSwitch",
-                )
+                video_encoder=video_encoder,
+            )
             else:
                 print("   📸 [Main] Hybrid render (Visual)...")
                 get_x_main = buat_video_hybrid(
@@ -621,7 +634,8 @@ def proses_klip(
                     cfg,
                     broll_aktif,
                     label=f"Rank {rank} Main",
-                )
+                video_encoder=video_encoder,
+            )
 
             if not cfg.no_subs:
                 buat_file_ass(
@@ -661,7 +675,7 @@ def proses_klip(
                     print("   ⚠️ Folder BGM kosong atau file mp3 tidak ditemukan. Render lanjut tanpa BGM.")
 
             # --- Subtitle & BGM Encoding Loop (Handles dual output files if needed) ---
-            runs = [m_silent] if not dev_dual else [m_silent, m_silent.replace(".ts", "_dev.ts")]
+            runs = [m_silent] if not dev_dual else [m_silent, m_silent.replace(".mp4", "_dev.mp4")]
             out_targets = [m_ts] if not dev_dual else [m_ts, m_ts_dev]
             
             for input_silent_ts, output_final_ts in zip(runs, out_targets):
@@ -770,17 +784,17 @@ def proses_klip(
             # Determine concat strategy based on hook type
             if use_hook_v2 and os.path.exists(hook_vid_ts):
                 # Hook V2: h_ts already contains items + transitions, concat directly
-                concat_str = f"concat:{hook_vid_ts}|{main_vid_ts}"
+                concat_str = f"concat:{hook_vid_ts.replace(chr(92), "/")}|{main_vid_ts.replace(chr(92), "/")}"
             elif aktif_hook:
                 # Hook V1: need glitch transition between hook and main
                 cur_glitch = siapkan_glitch_video(rasio, cfg, video_encoder, source_h=sh, custom_dims=dims)
                 if cur_glitch and os.path.exists(cur_glitch) and os.path.exists(hook_vid_ts):
-                    concat_str = f"concat:{hook_vid_ts}|{cur_glitch}|{main_vid_ts}"
+                    concat_str = f"concat:{hook_vid_ts.replace(chr(92), "/")}|{cur_glitch.replace(chr(92), "/")}|{main_vid_ts.replace(chr(92), "/")}"
                 else:
-                    concat_str = f"concat:{main_vid_ts}"
+                    concat_str = f"concat:{main_vid_ts.replace(chr(92), "/")}"
             else:
                 # No hook at all
-                concat_str = f"concat:{main_vid_ts}"
+                concat_str = f"concat:{main_vid_ts.replace(chr(92), "/")}"
 
             subprocess.run(
                 [
@@ -828,7 +842,7 @@ def proses_klip(
     finally:
         files_to_remove = [h_ts, m_ts, a_hook, a_main, h_silent, m_silent]
         if dev_dual:
-            files_to_remove.extend([h_ts_dev, m_ts_dev, m_silent.replace(".ts", "_dev.ts")])
+            files_to_remove.extend([h_ts_dev, m_ts_dev, m_silent.replace(".mp4", "_dev.mp4")])
             
         for br in broll_aktif:
             files_to_remove.append(br["filepath"])
